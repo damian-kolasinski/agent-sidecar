@@ -52,6 +52,7 @@ jobs:
             -archivePath build/AgentSidecar.xcarchive \
             CODE_SIGN_IDENTITY="Developer ID Application" \
             CODE_SIGNING_REQUIRED=YES \
+            DEVELOPMENT_TEAM=A3TR9R36A7 \
             OTHER_CODE_SIGN_FLAGS="--timestamp" \
             ARCHS="arm64 x86_64" \
             ONLY_ACTIVE_ARCH=NO
