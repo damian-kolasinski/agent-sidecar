@@ -61,8 +61,25 @@ jobs:
       - name: Create DMG
         run: |
           brew install create-dmg
+
+          ICON_SRC="AgentSidecar/AgentSidecar/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png"
+          ICONSET_DIR="build/AppIcon.iconset"
+          mkdir -p "$ICONSET_DIR"
+          sips -z 16 16     "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16.png"
+          sips -z 32 32     "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16@2x.png"
+          sips -z 32 32     "$ICON_SRC" --out "$ICONSET_DIR/icon_32x32.png"
+          sips -z 64 64     "$ICON_SRC" --out "$ICONSET_DIR/icon_32x32@2x.png"
+          sips -z 128 128   "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128.png"
+          sips -z 256 256   "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128@2x.png"
+          sips -z 256 256   "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256.png"
+          sips -z 512 512   "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256@2x.png"
+          sips -z 512 512   "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512.png"
+          sips -z 1024 1024 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512@2x.png"
+          iconutil -c icns "$ICONSET_DIR" -o build/AppIcon.icns
+
           create-dmg \
             --volname "AgentSidecar" \
+            --volicon "build/AppIcon.icns" \
             --window-pos 200 120 \
             --window-size 660 400 \
             --icon-size 160 \
