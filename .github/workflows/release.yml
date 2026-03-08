@@ -60,9 +60,17 @@ jobs:
 
       - name: Create DMG
         run: |
-          mkdir -p build/dmg
-          cp -R "build/AgentSidecar.xcarchive/Products/Applications/AgentSidecar.app" build/dmg/
-          hdiutil create -volname "AgentSidecar" -srcfolder build/dmg -ov -format UDZO "build/AgentSidecar.dmg"
+          brew install create-dmg
+          create-dmg \
+            --volname "AgentSidecar" \
+            --window-pos 200 120 \
+            --window-size 660 400 \
+            --icon-size 160 \
+            --icon "AgentSidecar.app" 180 170 \
+            --hide-extension "AgentSidecar.app" \
+            --app-drop-link 480 170 \
+            "build/AgentSidecar.dmg" \
+            "build/AgentSidecar.xcarchive/Products/Applications/AgentSidecar.app"
 
       - name: Codesign DMG
         run: codesign --force --sign "Developer ID Application" build/AgentSidecar.dmg
