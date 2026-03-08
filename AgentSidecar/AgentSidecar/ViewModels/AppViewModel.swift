@@ -9,11 +9,13 @@ final class AppViewModel: ObservableObject {
     @Published var selectedFilePath: String?
     @Published var reviewBundle: ReviewBundle?
     @Published var scrollToFilePath: String?
+    @Published var recentRepositories: [RecentRepository] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
 
     private var gitService: GitService?
     private let reviewStore = ReviewStore()
+    private let recentStore = RecentRepositoriesStore()
 
     var selectedFileDiff: FileDiff? {
         fileDiffs.first { $0.displayPath == selectedFilePath }
@@ -34,6 +36,7 @@ final class AppViewModel: ObservableObject {
         }
 
         Task {
+            await recordRecentRepo(payload.repoPath)
             await refresh()
         }
     }
@@ -48,6 +51,7 @@ final class AppViewModel: ObservableObject {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         repoPath = url.path
         Task {
+            await recordRecentRepo(url.path)
             await refresh()
         }
     }
@@ -152,5 +156,40 @@ final class AppViewModel: ObservableObject {
 
     func commentsForAnchor(_ filePath: String, anchor: String) -> [ReviewComment] {
         commentsForFile(filePath).filter { $0.lineAnchor == anchor }
+    }
+
+    // MARK: - Recent Repositories
+
+    func loadRecents() async {
+        let all = await recentStore.load()
+        recentRepositories = all.filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    func selectRecentRepo(_ repo: RecentRepository) {
+        repoPath = repo.path
+        selectedFilePath = nil
+        Task {
+            await recordRecentRepo(repo.path)
+            await refresh()
+        }
+    }
+
+    func removeRecentRepo(_ repo: RecentRepository) {
+        Task {
+            await recentStore.remove(path: repo.path)
+            await loadRecents()
+        }
+    }
+
+    func clearRecents() {
+        Task {
+            await recentStore.clearAll()
+            recentRepositories = []
+        }
+    }
+
+    private func recordRecentRepo(_ path: String) async {
+        await recentStore.addOrUpdate(path: path)
+        await loadRecents()
     }
 }

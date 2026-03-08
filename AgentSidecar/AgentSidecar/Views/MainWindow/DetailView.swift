@@ -7,13 +7,7 @@ struct DetailView: View {
     var body: some View {
         Group {
             if appViewModel.repoPath == nil {
-                EmptyStateView(
-                    title: "No Repository",
-                    message: "Open a Git repository to view diffs.",
-                    actionTitle: "Open Repository"
-                ) {
-                    appViewModel.openDirectoryPicker()
-                }
+                WelcomeView()
             } else if appViewModel.isLoading {
                 ProgressView("Loading diffs…")
             } else if let errorMessage = appViewModel.errorMessage {
