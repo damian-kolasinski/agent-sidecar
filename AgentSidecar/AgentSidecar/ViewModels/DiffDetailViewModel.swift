@@ -1,0 +1,37 @@
+import SwiftUI
+
+@MainActor
+final class DiffDetailViewModel: ObservableObject {
+    @Published var composerAnchor: String?
+    @Published var composerFilePath: String?
+    @Published var composerText = ""
+    @Published var expandedThreads: Set<String> = []
+
+    var isComposerOpen: Bool {
+        composerAnchor != nil
+    }
+
+    func openComposer(filePath: String, anchor: String) {
+        composerFilePath = filePath
+        composerAnchor = anchor
+        composerText = ""
+    }
+
+    func closeComposer() {
+        composerAnchor = nil
+        composerFilePath = nil
+        composerText = ""
+    }
+
+    func toggleThread(_ anchor: String) {
+        if expandedThreads.contains(anchor) {
+            expandedThreads.remove(anchor)
+        } else {
+            expandedThreads.insert(anchor)
+        }
+    }
+
+    func isThreadExpanded(_ anchor: String) -> Bool {
+        expandedThreads.contains(anchor)
+    }
+}
