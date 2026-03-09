@@ -21,6 +21,15 @@ actor ReviewStore {
         (repoPath as NSString).appendingPathComponent("\(Self.directoryName)/\(Self.fileName)")
     }
 
+    func modificationDate(repoPath: String) -> Date? {
+        let path = bundlePath(for: repoPath)
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: path),
+              let date = attrs[.modificationDate] as? Date else {
+            return nil
+        }
+        return date
+    }
+
     func load(repoPath: String) async throws -> ReviewBundle? {
         let path = bundlePath(for: repoPath)
         let url = URL(fileURLWithPath: path)

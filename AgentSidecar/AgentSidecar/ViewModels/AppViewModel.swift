@@ -16,6 +16,8 @@ final class AppViewModel: ObservableObject {
     private var gitService: GitService?
     private let reviewStore = ReviewStore()
     private let recentStore = RecentRepositoriesStore()
+    private var fileWatcherTask: Task<Void, Never>?
+    private var lastKnownModDate: Date?
 
     var selectedFileDiff: FileDiff? {
         fileDiffs.first { $0.displayPath == selectedFilePath }
@@ -88,6 +90,8 @@ final class AppViewModel: ObservableObject {
             if reviewBundle == nil {
                 reviewBundle = ReviewBundle(repoPath: repoPath, scope: scope)
             }
+            lastKnownModDate = await reviewStore.modificationDate(repoPath: repoPath)
+            updateWatcher()
 
             // Select first file if nothing selected
             if selectedFilePath == nil {
@@ -119,9 +123,11 @@ final class AppViewModel: ObservableObject {
         )
         bundle.comments.append(comment)
         reviewBundle = bundle
+        updateWatcher()
 
         Task {
             try? await reviewStore.save(bundle)
+            lastKnownModDate = await reviewStore.modificationDate(repoPath: bundle.repoPath)
         }
     }
 
@@ -133,9 +139,11 @@ final class AppViewModel: ObservableObject {
 
         bundle.comments[index].resolved.toggle()
         reviewBundle = bundle
+        updateWatcher()
 
         Task {
             try? await reviewStore.save(bundle)
+            lastKnownModDate = await reviewStore.modificationDate(repoPath: bundle.repoPath)
         }
     }
 
@@ -144,6 +152,7 @@ final class AppViewModel: ObservableObject {
         Task {
             do {
                 try await reviewStore.save(bundle)
+                lastKnownModDate = await reviewStore.modificationDate(repoPath: bundle.repoPath)
             } catch {
                 errorMessage = "Failed to save review: \(error.localizedDescription)"
             }
@@ -156,6 +165,52 @@ final class AppViewModel: ObservableObject {
 
     func commentsForAnchor(_ filePath: String, anchor: String) -> [ReviewComment] {
         commentsForFile(filePath).filter { $0.lineAnchor == anchor }
+    }
+
+    // MARK: - File Watcher
+
+    private var hasUnresolvedComments: Bool {
+        reviewBundle?.comments.contains { !$0.resolved } ?? false
+    }
+
+    private func updateWatcher() {
+        if hasUnresolvedComments {
+            startWatchingIfNeeded()
+        } else {
+            stopWatching()
+        }
+    }
+
+    private func startWatchingIfNeeded() {
+        guard fileWatcherTask == nil else { return }
+        fileWatcherTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard !Task.isCancelled else { break }
+                await self?.checkForExternalChanges()
+            }
+        }
+    }
+
+    private func stopWatching() {
+        fileWatcherTask?.cancel()
+        fileWatcherTask = nil
+    }
+
+    private func checkForExternalChanges() async {
+        guard let repoPath else { return }
+        let modDate = await reviewStore.modificationDate(repoPath: repoPath)
+        guard let modDate, modDate != lastKnownModDate else { return }
+        lastKnownModDate = modDate
+
+        do {
+            if let bundle = try await reviewStore.load(repoPath: repoPath) {
+                reviewBundle = bundle
+                updateWatcher()
+            }
+        } catch {
+            // Silently ignore reload errors — file may be mid-write
+        }
     }
 
     // MARK: - Recent Repositories
