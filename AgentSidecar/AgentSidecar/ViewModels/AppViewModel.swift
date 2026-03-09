@@ -18,6 +18,11 @@ final class AppViewModel: ObservableObject {
     private let recentStore = RecentRepositoriesStore()
     private var fileWatcherTask: Task<Void, Never>?
     private var lastKnownModDate: Date?
+    private var savesInFlight = 0
+
+    deinit {
+        fileWatcherTask?.cancel()
+    }
 
     var selectedFileDiff: FileDiff? {
         fileDiffs.first { $0.displayPath == selectedFilePath }
@@ -64,6 +69,7 @@ final class AppViewModel: ObservableObject {
             return
         }
 
+        stopWatching()
         isLoading = true
         errorMessage = nil
 
@@ -125,9 +131,11 @@ final class AppViewModel: ObservableObject {
         reviewBundle = bundle
         updateWatcher()
 
+        savesInFlight += 1
         Task {
             try? await reviewStore.save(bundle)
             lastKnownModDate = await reviewStore.modificationDate(repoPath: bundle.repoPath)
+            savesInFlight -= 1
         }
     }
 
@@ -141,14 +149,17 @@ final class AppViewModel: ObservableObject {
         reviewBundle = bundle
         updateWatcher()
 
+        savesInFlight += 1
         Task {
             try? await reviewStore.save(bundle)
             lastKnownModDate = await reviewStore.modificationDate(repoPath: bundle.repoPath)
+            savesInFlight -= 1
         }
     }
 
     func saveReview() {
         guard let bundle = reviewBundle else { return }
+        savesInFlight += 1
         Task {
             do {
                 try await reviewStore.save(bundle)
@@ -156,6 +167,7 @@ final class AppViewModel: ObservableObject {
             } catch {
                 errorMessage = "Failed to save review: \(error.localizedDescription)"
             }
+            savesInFlight -= 1
         }
     }
 
@@ -198,7 +210,7 @@ final class AppViewModel: ObservableObject {
     }
 
     private func checkForExternalChanges() async {
-        guard let repoPath else { return }
+        guard let repoPath, savesInFlight == 0 else { return }
         let modDate = await reviewStore.modificationDate(repoPath: repoPath)
         guard let modDate, modDate != lastKnownModDate else { return }
         lastKnownModDate = modDate
