@@ -8,49 +8,59 @@ struct FileDiffSectionView: View {
     @EnvironmentObject var appViewModel: AppViewModel
     @EnvironmentObject var detailViewModel: DiffDetailViewModel
 
+    private var isCollapsed: Bool {
+        detailViewModel.isFileCollapsed(fileDiff.displayPath)
+    }
+
+    private var isSwiftFile: Bool {
+        fileDiff.newPath.hasSuffix(".swift") || fileDiff.oldPath.hasSuffix(".swift")
+    }
+
     var body: some View {
         fileHeader
 
-        if fileDiff.isBinary {
-            binaryFileNotice
-        } else {
-            ForEach(fileDiff.hunks) { hunk in
-                HunkHeaderView(header: hunk.header)
+        if !isCollapsed {
+            if fileDiff.isBinary {
+                binaryFileNotice
+            } else {
+                ForEach(fileDiff.hunks) { hunk in
+                    HunkHeaderView(header: hunk.header)
 
-                ForEach(hunk.lines) { line in
-                    DiffLineView(line: line) {
-                        detailViewModel.openComposer(
-                            filePath: fileDiff.displayPath,
+                    ForEach(hunk.lines) { line in
+                        DiffLineView(line: line, syntaxHighlight: isSwiftFile) {
+                            detailViewModel.openComposer(
+                                filePath: fileDiff.displayPath,
+                                anchor: line.anchor
+                            )
+                        }
+
+                        let comments = appViewModel.commentsForAnchor(
+                            fileDiff.displayPath,
                             anchor: line.anchor
                         )
-                    }
+                        if !comments.isEmpty {
+                            CommentThreadView(
+                                comments: comments,
+                                anchor: line.anchor
+                            )
+                        }
 
-                    let comments = appViewModel.commentsForAnchor(
-                        fileDiff.displayPath,
-                        anchor: line.anchor
-                    )
-                    if !comments.isEmpty {
-                        CommentThreadView(
-                            comments: comments,
-                            anchor: line.anchor
-                        )
-                    }
-
-                    if detailViewModel.composerAnchor == line.anchor
-                        && detailViewModel.composerFilePath == fileDiff.displayPath {
-                        InlineCommentComposer(
-                            onSubmit: { body in
-                                appViewModel.addComment(
-                                    filePath: fileDiff.displayPath,
-                                    lineAnchor: line.anchor,
-                                    body: body
-                                )
-                                detailViewModel.closeComposer()
-                            },
-                            onCancel: {
-                                detailViewModel.closeComposer()
-                            }
-                        )
+                        if detailViewModel.composerAnchor == line.anchor
+                            && detailViewModel.composerFilePath == fileDiff.displayPath {
+                            InlineCommentComposer(
+                                onSubmit: { body in
+                                    appViewModel.addComment(
+                                        filePath: fileDiff.displayPath,
+                                        lineAnchor: line.anchor,
+                                        body: body
+                                    )
+                                    detailViewModel.closeComposer()
+                                },
+                                onCancel: {
+                                    detailViewModel.closeComposer()
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -59,6 +69,11 @@ struct FileDiffSectionView: View {
 
     private var fileHeader: some View {
         HStack(spacing: DSSpacing.sm) {
+            Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: 12)
+
             DSBadge(status: fileDiff.status)
 
             Text(fileDiff.displayPath)
@@ -84,6 +99,12 @@ struct FileDiffSectionView: View {
         .padding(.horizontal, DSSpacing.md)
         .padding(.vertical, DSSpacing.sm)
         .background(DSColor.hunkHeaderBackground.opacity(0.5))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                detailViewModel.toggleFileCollapsed(fileDiff.displayPath)
+            }
+        }
     }
 
     private var binaryFileNotice: some View {

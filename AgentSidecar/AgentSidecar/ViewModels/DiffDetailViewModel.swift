@@ -6,6 +6,7 @@ final class DiffDetailViewModel: ObservableObject {
     @Published var composerFilePath: String?
     @Published var composerText = ""
     @Published var expandedThreads: Set<String> = []
+    @Published var collapsedFiles: Set<String> = []
 
     var isComposerOpen: Bool {
         composerAnchor != nil
@@ -21,6 +22,18 @@ final class DiffDetailViewModel: ObservableObject {
         composerAnchor = nil
         composerFilePath = nil
         composerText = ""
+    }
+
+    func toggleFileCollapsed(_ filePath: String) {
+        if collapsedFiles.contains(filePath) {
+            collapsedFiles.remove(filePath)
+        } else {
+            collapsedFiles.insert(filePath)
+        }
+    }
+
+    func isFileCollapsed(_ filePath: String) -> Bool {
+        collapsedFiles.contains(filePath)
     }
 
     func toggleThread(_ anchor: String) {

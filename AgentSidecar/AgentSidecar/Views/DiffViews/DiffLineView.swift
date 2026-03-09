@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DiffLineView: View {
     let line: DiffLine
+    var syntaxHighlight = false
     let onGutterClick: () -> Void
 
     @State private var isHovering = false
@@ -31,9 +32,8 @@ struct DiffLineView: View {
                 .frame(width: 14, alignment: .center)
 
             // Content
-            Text(line.content + (line.noNewlineAtEnd ? " ⏎" : ""))
+            highlightedContent
                 .font(DSFont.code)
-                .foregroundStyle(foregroundColor)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.trailing, DSSpacing.sm)
         }
@@ -41,6 +41,37 @@ struct DiffLineView: View {
         .background(backgroundColor)
         .onHover { hovering in
             isHovering = hovering
+        }
+    }
+
+    private var highlightedContent: Text {
+        let suffix = line.noNewlineAtEnd ? " ⏎" : ""
+
+        guard syntaxHighlight else {
+            return Text(line.content + suffix)
+                .foregroundColor(foregroundColor)
+        }
+
+        let tokens = SwiftSyntaxHighlighter.tokenize(line.content)
+        var result = Text("")
+        for token in tokens {
+            result = result + Text(token.text).foregroundColor(colorForToken(token.type))
+        }
+        if !suffix.isEmpty {
+            result = result + Text(suffix).foregroundColor(foregroundColor)
+        }
+        return result
+    }
+
+    private func colorForToken(_ type: SyntaxTokenType) -> Color {
+        switch type {
+        case .keyword: DSColor.syntaxKeyword
+        case .type: DSColor.syntaxType
+        case .property: DSColor.syntaxProperty
+        case .string: DSColor.syntaxString
+        case .comment: DSColor.syntaxComment
+        case .number: DSColor.syntaxNumber
+        case .plain: foregroundColor
         }
     }
 
