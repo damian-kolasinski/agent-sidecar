@@ -87,6 +87,8 @@ The `lineAnchor` field uses the format `old:new` where:
 
 ## Claude Code Hook Integration
 
+### Diff Review Hook (post-edit)
+
 You can set up a post-edit hook in `.claude/settings.json`:
 
 ```json
@@ -100,6 +102,103 @@ You can set up a post-edit hook in `.claude/settings.json`:
     ]
   }
 }
+```
+
+### Plan Review Hook (pre-approval)
+
+The plan review hook intercepts Claude's `ExitPlanMode` tool call, opens AgentSidecar for plan review, and blocks until you approve or request changes. This gives you a visual review step before Claude starts implementing.
+
+#### Setup
+
+1. **Copy the hook script** into your project:
+
+```bash
+mkdir -p Scripts
+curl -o Scripts/plan-review-hook.sh \
+  https://raw.githubusercontent.com/nicekode/agent-sidecar/main/Scripts/plan-review-hook.sh
+chmod +x Scripts/plan-review-hook.sh
+```
+
+2. **Add the hook to `.claude/settings.json`** (create the file if it doesn't exist):
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./Scripts/plan-review-hook.sh",
+            "timeout": 660000
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+The timeout (660s) is slightly longer than the script's internal 600s timeout so the script handles expiry gracefully.
+
+3. **Ensure `jq` is installed** (the hook requires it):
+
+```bash
+brew install jq
+```
+
+#### How it works
+
+1. Claude enters plan mode, writes a plan, and calls `ExitPlanMode`
+2. The hook intercepts the call and opens AgentSidecar via `agentsidecar://plan?file=...`
+3. The hook polls `~/.claude/plans/{slug}.review.json` every 2 seconds
+4. You review the plan in AgentSidecar and submit your decision
+5. **Approved** → hook exits, Claude proceeds to implement
+6. **Changes requested** → hook sends your comments back to Claude, which revises the plan and tries again
+
+#### Review JSON format
+
+AgentSidecar writes the review file to `~/.claude/plans/{slug}.review.json` where `{slug}` is the plan filename without `.md`.
+
+**Approved:**
+```json
+{
+  "status": "approved",
+  "comments": [],
+  "reviewedAt": "2026-03-15T10:30:00Z"
+}
+```
+
+**Changes requested:**
+```json
+{
+  "status": "changes_requested",
+  "comments": [
+    {
+      "line": "2. Call NetworkService.fetch() to get user data",
+      "comment": "Use a guard clause instead of if-let here"
+    }
+  ],
+  "reviewedAt": "2026-03-15T10:32:00Z"
+}
+```
+
+Each comment includes a `line` field quoting the exact plan text it refers to, so Claude can locate the context.
+
+#### Manual testing (without AgentSidecar UI)
+
+You can test the hook by writing the review JSON manually in another terminal:
+
+```bash
+# Find the current plan slug
+SLUG=$(ls -t ~/.claude/plans/*.md | head -1 | xargs basename | sed 's/.md$//')
+
+# Approve
+echo '{"status":"approved","comments":[]}' > ~/.claude/plans/${SLUG}.review.json
+
+# Request changes
+echo '{"status":"changes_requested","comments":[{"line":"Some plan text","comment":"Needs rework"}]}' > ~/.claude/plans/${SLUG}.review.json
 ```
 
 ## Tips

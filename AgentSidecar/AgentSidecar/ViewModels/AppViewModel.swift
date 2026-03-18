@@ -1,7 +1,13 @@
 import SwiftUI
 
+enum AppMode: Equatable {
+    case diffReview
+    case planReview(filePath: String)
+}
+
 @MainActor
 final class AppViewModel: ObservableObject {
+    @Published var currentMode: AppMode = .diffReview
     @Published var repoPath: String?
     @Published var scope: DiffScope = .workingTree
     @Published var baseBranch: String = "main"
@@ -10,6 +16,7 @@ final class AppViewModel: ObservableObject {
     @Published var reviewBundle: ReviewBundle?
     @Published var scrollToFilePath: String?
     @Published var recentRepositories: [RecentRepository] = []
+    @Published var planFiles: [PlanFileEntry] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
 
@@ -28,23 +35,47 @@ final class AppViewModel: ObservableObject {
         fileDiffs.first { $0.displayPath == selectedFilePath }
     }
 
+    private func debugLog(_ msg: String) {
+        let line = "[\(Date())] \(msg)\n"
+        let path = "/tmp/agentsidecar-debug.log"
+        if let handle = FileHandle(forWritingAtPath: path) {
+            handle.seekToEndOfFile()
+            handle.write(Data(line.utf8))
+            handle.closeFile()
+        } else {
+            FileManager.default.createFile(atPath: path, contents: Data(line.utf8))
+        }
+    }
+
     func handleDeeplink(url: URL) {
-        guard let payload = DeeplinkHandler.parse(url: url) else {
+        debugLog("handleDeeplink called with url: \(url)")
+        debugLog("scheme=\(url.scheme ?? "nil") host=\(url.host ?? "nil")")
+
+        guard let action = DeeplinkHandler.parse(url: url) else {
+            debugLog("parse returned nil — invalid deeplink")
             errorMessage = "Invalid deeplink URL"
             return
         }
 
-        repoPath = payload.repoPath
-        if let scope = payload.scope {
-            self.scope = scope
-        }
-        if let base = payload.baseBranch {
-            self.baseBranch = base
-        }
+        debugLog("parsed action: \(action)")
 
-        Task {
-            await recordRecentRepo(payload.repoPath)
-            await refresh()
+        switch action {
+        case .openDiff(let payload):
+            currentMode = .diffReview
+            repoPath = payload.repoPath
+            if let scope = payload.scope {
+                self.scope = scope
+            }
+            if let base = payload.baseBranch {
+                self.baseBranch = base
+            }
+            Task {
+                await recordRecentRepo(payload.repoPath)
+                await refresh()
+            }
+
+        case .openPlan(let filePath):
+            currentMode = .planReview(filePath: filePath)
         }
     }
 
@@ -223,6 +254,47 @@ final class AppViewModel: ObservableObject {
         } catch {
             // Silently ignore reload errors — file may be mid-write
         }
+    }
+
+    // MARK: - Plan Files
+
+    func loadPlanFiles() {
+        let fm = FileManager.default
+        let plansDir = (NSHomeDirectory() as NSString).appendingPathComponent(".claude/plans")
+        guard let files = try? fm.contentsOfDirectory(atPath: plansDir) else {
+            planFiles = []
+            return
+        }
+
+        let oneWeekAgo = Date().addingTimeInterval(-7 * 24 * 60 * 60)
+
+        planFiles = files
+            .filter { $0.hasSuffix(".md") }
+            .compactMap { fileName -> PlanFileEntry? in
+                let fullPath = (plansDir as NSString).appendingPathComponent(fileName)
+                guard let attrs = try? fm.attributesOfItem(atPath: fullPath),
+                      let modDate = attrs[.modificationDate] as? Date else {
+                    return nil
+                }
+                let title = Self.firstHeading(atPath: fullPath) ?? fileName
+                return PlanFileEntry(path: fullPath, title: title, modifiedAt: modDate)
+            }
+            .filter { $0.modifiedAt > oneWeekAgo }
+            .sorted { $0.modifiedAt > $1.modifiedAt }
+    }
+
+    private static func firstHeading(atPath path: String) -> String? {
+        guard let data = FileManager.default.contents(atPath: path),
+              let content = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        for line in content.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.hasPrefix("# ") {
+                return String(trimmed.dropFirst(2))
+            }
+        }
+        return nil
     }
 
     // MARK: - Recent Repositories

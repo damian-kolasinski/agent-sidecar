@@ -9,11 +9,16 @@ struct AgentSidecarApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(appViewModel)
-                .onOpenURL { url in
-                    appViewModel.handleDeeplink(url: url)
+                .onAppear {
+                    appDelegate.onOpenURL = { [weak appViewModel] url in
+                        Task { @MainActor in
+                            appViewModel?.handleDeeplink(url: url)
+                        }
+                    }
                 }
                 .task {
                     await appViewModel.loadRecents()
+                    appViewModel.loadPlanFiles()
                 }
                 .frame(minWidth: 800, minHeight: 500)
         }

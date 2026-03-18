@@ -1,8 +1,9 @@
 import AppKit
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    var onOpenURL: ((URL) -> Void)?
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Register URL handler as fallback
         NSAppleEventManager.shared().setEventHandler(
             self,
             andSelector: #selector(handleURLEvent(_:withReplyEvent:)),
@@ -12,7 +13,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func handleURLEvent(_ event: NSAppleEventDescriptor, withReplyEvent reply: NSAppleEventDescriptor) {
-        // SwiftUI .onOpenURL handles this; this is a fallback for edge cases
+        guard let urlString = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
+              let url = URL(string: urlString) else {
+            return
+        }
+        onOpenURL?(url)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

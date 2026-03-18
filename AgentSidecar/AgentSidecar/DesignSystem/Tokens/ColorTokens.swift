@@ -140,4 +140,15 @@ enum DSColor {
         light: Color(red: 0.64, green: 0.49, blue: 0.10),
         dark: Color(red: 0.85, green: 0.75, blue: 0.30)
     )
+
+    // MARK: - Markdown Highlighting
+    static let markdownHeading = syntaxKeyword
+    static let markdownBold = Color(
+        light: Color(red: 0.1, green: 0.1, blue: 0.1),
+        dark: Color(red: 0.95, green: 0.95, blue: 0.95)
+    )
+    static let markdownCode = syntaxType
+    static let markdownLink = syntaxProperty
+    static let markdownLinkURL = syntaxComment
+    static let markdownListMarker = syntaxNumber
 }

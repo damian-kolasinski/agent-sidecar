@@ -1,12 +1,25 @@
 import Foundation
 
+enum DeeplinkAction {
+    case openDiff(DeeplinkPayload)
+    case openPlan(filePath: String)
+}
+
 enum DeeplinkHandler {
-    static func parse(url: URL) -> DeeplinkPayload? {
-        guard url.scheme == "agentsidecar",
-              url.host == "open" else {
+    static func parse(url: URL) -> DeeplinkAction? {
+        guard url.scheme == "agentsidecar" else { return nil }
+
+        switch url.host {
+        case "open":
+            return parseDiffDeeplink(url: url).map { .openDiff($0) }
+        case "plan":
+            return parsePlanDeeplink(url: url).map { .openPlan(filePath: $0) }
+        default:
             return nil
         }
+    }
 
+    private static func parseDiffDeeplink(url: URL) -> DeeplinkPayload? {
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
               let queryItems = components.queryItems else {
             return nil
@@ -28,6 +41,16 @@ enum DeeplinkHandler {
             baseBranch: baseBranch,
             bundlePath: bundlePath
         )
+    }
+
+    private static func parsePlanDeeplink(url: URL) -> String? {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let queryItems = components.queryItems,
+              let filePath = queryItems.first(where: { $0.name == "file" })?.value,
+              !filePath.isEmpty else {
+            return nil
+        }
+        return filePath
     }
 
     static func buildURL(
