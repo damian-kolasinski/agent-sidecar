@@ -12,6 +12,10 @@ struct FileDiffSectionView: View {
         detailViewModel.isFileCollapsed(fileDiff.displayPath)
     }
 
+    private var isReviewed: Bool {
+        detailViewModel.isFileReviewed(fileDiff.displayPath)
+    }
+
     private var isSwiftFile: Bool {
         fileDiff.newPath.hasSuffix(".swift") || fileDiff.oldPath.hasSuffix(".swift")
     }
@@ -95,16 +99,40 @@ struct FileDiffSectionView: View {
                         .foregroundStyle(DSColor.statusDeleted)
                 }
             }
+
+            viewedToggle
         }
         .padding(.horizontal, DSSpacing.md)
         .padding(.vertical, DSSpacing.sm)
-        .background(DSColor.hunkHeaderBackground.opacity(0.5))
+        .background(isReviewed
+            ? DSColor.statusAdded.opacity(0.06)
+            : DSColor.hunkHeaderBackground.opacity(0.5))
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.15)) {
                 detailViewModel.toggleFileCollapsed(fileDiff.displayPath)
             }
         }
+    }
+
+    private var viewedToggle: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                detailViewModel.toggleFileReviewed(fileDiff.displayPath)
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: isReviewed ? "checkmark.square.fill" : "square")
+                    .font(.system(size: 12))
+                    .foregroundStyle(isReviewed ? DSColor.statusAdded : .secondary)
+                Text("Viewed")
+                    .font(DSFont.caption)
+                    .foregroundStyle(isReviewed ? DSColor.statusAdded : .secondary)
+            }
+            .padding(.horizontal, DSSpacing.sm)
+            .padding(.vertical, DSSpacing.xxs)
+        }
+        .buttonStyle(.plain)
     }
 
     private var binaryFileNotice: some View {
