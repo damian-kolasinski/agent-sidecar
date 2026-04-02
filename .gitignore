@@ -65,3 +65,6 @@ fastlane/test_output
 Derived/
 *.xcodeproj
 *.xcworkspace
+
+# AgentSidecar review artifacts
+.agent-review/

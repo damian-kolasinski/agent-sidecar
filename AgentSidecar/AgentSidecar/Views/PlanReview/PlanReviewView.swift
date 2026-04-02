@@ -61,7 +61,7 @@ struct PlanReviewView: View {
             viewModel.planFilePath = filePath
             viewModel.loadPlan()
         }
-        .onChange(of: filePath) { newPath in
+        .onChange(of: filePath) { _, newPath in
             viewModel.planFilePath = newPath
             viewModel.loadPlan()
         }

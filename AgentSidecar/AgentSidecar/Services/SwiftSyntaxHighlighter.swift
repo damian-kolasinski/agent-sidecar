@@ -16,7 +16,7 @@ struct SyntaxToken: Sendable {
 }
 
 enum SwiftSyntaxHighlighter {
-    private nonisolated(unsafe) static let pattern: NSRegularExpression = {
+    private static let pattern: NSRegularExpression = {
         let comment = #"//.*$|/\*.*?(?:\*/|$)"#
         let string = #""(?:[^"\\]|\\.)*""#
         let number = #"\b(?:0x[0-9a-fA-F_]+|0b[01_]+|0o[0-7_]+|\d[\d_]*\.?[\d_]*(?:e[+-]?\d+)?)\b"#

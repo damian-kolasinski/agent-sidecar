@@ -3,6 +3,7 @@ import SwiftUI
 enum AppMode: Equatable {
     case diffReview
     case planReview(filePath: String)
+    case fileReview(FileReviewPayload)
 }
 
 @MainActor
@@ -35,29 +36,11 @@ final class AppViewModel: ObservableObject {
         fileDiffs.first { $0.displayPath == selectedFilePath }
     }
 
-    private func debugLog(_ msg: String) {
-        let line = "[\(Date())] \(msg)\n"
-        let path = "/tmp/agentsidecar-debug.log"
-        if let handle = FileHandle(forWritingAtPath: path) {
-            handle.seekToEndOfFile()
-            handle.write(Data(line.utf8))
-            handle.closeFile()
-        } else {
-            FileManager.default.createFile(atPath: path, contents: Data(line.utf8))
-        }
-    }
-
     func handleDeeplink(url: URL) {
-        debugLog("handleDeeplink called with url: \(url)")
-        debugLog("scheme=\(url.scheme ?? "nil") host=\(url.host ?? "nil")")
-
         guard let action = DeeplinkHandler.parse(url: url) else {
-            debugLog("parse returned nil — invalid deeplink")
             errorMessage = "Invalid deeplink URL"
             return
         }
-
-        debugLog("parsed action: \(action)")
 
         switch action {
         case .openDiff(let payload):
@@ -76,6 +59,9 @@ final class AppViewModel: ObservableObject {
 
         case .openPlan(let filePath):
             currentMode = .planReview(filePath: filePath)
+
+        case .openFileReview(let payload):
+            currentMode = .fileReview(payload)
         }
     }
 

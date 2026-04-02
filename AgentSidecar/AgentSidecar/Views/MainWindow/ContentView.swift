@@ -20,6 +20,10 @@ struct ContentView: View {
                 NavigationStack {
                     PlanReviewView(filePath: filePath)
                 }
+            case .fileReview(let payload):
+                NavigationStack {
+                    FileReviewView(payload: payload)
+                }
             }
         }
     }

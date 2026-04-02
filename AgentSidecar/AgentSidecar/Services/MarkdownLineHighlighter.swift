@@ -17,7 +17,7 @@ struct MarkdownToken: Sendable {
 }
 
 enum MarkdownLineHighlighter {
-    private nonisolated(unsafe) static let inlinePattern: NSRegularExpression = {
+    private static let inlinePattern: NSRegularExpression = {
         let code = #"`([^`]+)`"#
         let bold = #"\*\*(.+?)\*\*"#
         let italic = #"\*(.+?)\*"#

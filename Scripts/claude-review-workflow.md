@@ -6,6 +6,8 @@ This document describes how to integrate AgentSidecar into a Claude Code workflo
 
 AgentSidecar provides a GitHub-like diff review UI that Claude can trigger via deeplinks. The user reviews diffs visually, leaves inline comments, and those comments are persisted as structured JSON that Claude can read and act on.
 
+AgentSidecar also supports reviewing any local text file. This is useful for artifacts like `tmp/analysis.md`, plans, specs, or generated notes that need a human review loop outside the terminal.
+
 ## Workflow Steps
 
 ### 1. Claude makes code changes
@@ -77,6 +79,88 @@ For each comment, Claude:
 ```bash
 # Read and update the JSON, setting resolved=true for addressed comments
 ```
+
+## Local File Review Workflow
+
+### 1. Claude prepares a file for review
+
+For example:
+
+```bash
+cat > /tmp/analysis.md <<'EOF'
+# Analysis
+
+## Recommendation
+Draft recommendation text.
+EOF
+```
+
+### 2. Claude opens AgentSidecar in file review mode
+
+```bash
+FILE_PATH="/tmp/analysis.md"
+REVIEW_PATH="/tmp/analysis.review.json"
+
+ENCODED_FILE=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$FILE_PATH")
+ENCODED_REVIEW=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$REVIEW_PATH")
+
+open "agentsidecar://file?file=${ENCODED_FILE}&review=${ENCODED_REVIEW}"
+```
+
+### 3. User reviews the file in AgentSidecar
+
+- Browse the file line by line
+- Hover a line to reveal the `+` gutter action
+- Add a command describing the change needed on that line
+- Click **Request Changes** to submit commands, or **Approve** to accept the file as-is
+
+### 4. Claude reads the file review JSON
+
+```bash
+cat /tmp/analysis.review.json
+```
+
+The JSON structure:
+
+```json
+{
+  "version": 1,
+  "filePath": "/tmp/analysis.md",
+  "status": "changes_requested",
+  "commands": [
+    {
+      "lineNumber": 3,
+      "line": "## Recommendation",
+      "command": "Rename this heading to `## Proposed Approach`."
+    }
+  ],
+  "reviewedAt": "2026-04-02T12:00:00Z"
+}
+```
+
+### 5. Claude applies each command
+
+For each command, Claude:
+1. Locates the target using both `lineNumber` and `line`
+2. Revises the file accordingly
+3. Summarizes the applied changes
+4. Reopens AgentSidecar for the next review round if needed
+
+### 6. Approval ends the loop
+
+An approved review writes:
+
+```json
+{
+  "version": 1,
+  "filePath": "/tmp/analysis.md",
+  "status": "approved",
+  "commands": [],
+  "reviewedAt": "2026-04-02T12:05:00Z"
+}
+```
+
+At that point Claude can stop iterating unless the user asks for more changes.
 
 ## Line Anchor Format
 
