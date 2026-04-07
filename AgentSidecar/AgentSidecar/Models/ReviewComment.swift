@@ -10,6 +10,10 @@ struct ReviewComment: Codable, Identifiable, Sendable {
     let createdAt: Date
     var resolved: Bool
 
+    var isUserAuthored: Bool {
+        author == "human"
+    }
+
     init(
         id: UUID = UUID(),
         filePath: String,

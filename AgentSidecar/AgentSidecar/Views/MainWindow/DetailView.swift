@@ -96,7 +96,7 @@ struct DetailView: View {
     private var continuousScrollView: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(spacing: 0) {
+                LazyVStack(spacing: 0, pinnedViews: [.sectionHeaders]) {
                     ForEach(appViewModel.fileDiffs) { fileDiff in
                         FileDiffSectionView(fileDiff: fileDiff)
                             .id(fileDiff.displayPath)

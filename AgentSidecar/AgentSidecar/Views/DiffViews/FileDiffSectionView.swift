@@ -1,8 +1,7 @@
 import SwiftUI
 
-/// Renders a single file's diff content as flat rows suitable for embedding
-/// directly inside a parent `LazyVStack`. No internal `VStack` wrapper, so
-/// the parent container drives lazy loading at the line level.
+/// Renders a single file diff as a `Section` so the parent `LazyVStack`
+/// can pin the file header while its lines scroll underneath.
 struct FileDiffSectionView: View {
     let fileDiff: FileDiff
     @EnvironmentObject var appViewModel: AppViewModel
@@ -21,53 +20,56 @@ struct FileDiffSectionView: View {
     }
 
     var body: some View {
-        fileHeader
+        Section {
+            if !isCollapsed {
+                if fileDiff.isBinary {
+                    binaryFileNotice
+                } else {
+                    ForEach(fileDiff.hunks) { hunk in
+                        HunkHeaderView(header: hunk.header)
 
-        if !isCollapsed {
-            if fileDiff.isBinary {
-                binaryFileNotice
-            } else {
-                ForEach(fileDiff.hunks) { hunk in
-                    HunkHeaderView(header: hunk.header)
+                        ForEach(hunk.lines) { line in
+                            DiffLineView(line: line, syntaxHighlight: isSwiftFile) {
+                                detailViewModel.openComposer(
+                                    filePath: fileDiff.displayPath,
+                                    anchor: line.anchor
+                                )
+                            }
 
-                    ForEach(hunk.lines) { line in
-                        DiffLineView(line: line, syntaxHighlight: isSwiftFile) {
-                            detailViewModel.openComposer(
-                                filePath: fileDiff.displayPath,
+                            let comments = appViewModel.commentsForAnchor(
+                                fileDiff.displayPath,
                                 anchor: line.anchor
                             )
-                        }
+                            if !comments.isEmpty {
+                                CommentThreadView(
+                                    comments: comments,
+                                    anchor: line.anchor
+                                )
+                            }
 
-                        let comments = appViewModel.commentsForAnchor(
-                            fileDiff.displayPath,
-                            anchor: line.anchor
-                        )
-                        if !comments.isEmpty {
-                            CommentThreadView(
-                                comments: comments,
-                                anchor: line.anchor
-                            )
-                        }
-
-                        if detailViewModel.composerAnchor == line.anchor
-                            && detailViewModel.composerFilePath == fileDiff.displayPath {
-                            InlineCommentComposer(
-                                onSubmit: { body in
-                                    appViewModel.addComment(
-                                        filePath: fileDiff.displayPath,
-                                        lineAnchor: line.anchor,
-                                        body: body
-                                    )
-                                    detailViewModel.closeComposer()
-                                },
-                                onCancel: {
-                                    detailViewModel.closeComposer()
-                                }
-                            )
+                            if detailViewModel.composerAnchor == line.anchor
+                                && detailViewModel.composerFilePath == fileDiff.displayPath {
+                                InlineCommentComposer(
+                                    onSubmit: { body in
+                                        appViewModel.addComment(
+                                            filePath: fileDiff.displayPath,
+                                            lineAnchor: line.anchor,
+                                            body: body
+                                        )
+                                        detailViewModel.closeComposer()
+                                    },
+                                    onCancel: {
+                                        detailViewModel.closeComposer()
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
+        } header: {
+            fileHeader
+                .zIndex(1)
         }
     }
 
@@ -104,9 +106,16 @@ struct FileDiffSectionView: View {
         }
         .padding(.horizontal, DSSpacing.md)
         .padding(.vertical, DSSpacing.sm)
-        .background(isReviewed
-            ? DSColor.statusAdded.opacity(0.06)
-            : DSColor.hunkHeaderBackground.opacity(0.5))
+        .background {
+            ZStack {
+                DSColor.sidebarBackground
+                if isReviewed {
+                    DSColor.statusAdded.opacity(0.06)
+                } else {
+                    DSColor.hunkHeaderBackground.opacity(0.5)
+                }
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.easeInOut(duration: 0.15)) {

@@ -174,6 +174,25 @@ final class AppViewModel: ObservableObject {
         }
     }
 
+    func deleteComment(commentID: UUID) {
+        guard var bundle = reviewBundle,
+              let index = bundle.comments.firstIndex(where: { $0.id == commentID }),
+              bundle.comments[index].isUserAuthored else {
+            return
+        }
+
+        bundle.comments.remove(at: index)
+        reviewBundle = bundle
+        updateWatcher()
+
+        savesInFlight += 1
+        Task {
+            try? await reviewStore.save(bundle)
+            lastKnownModDate = await reviewStore.modificationDate(repoPath: bundle.repoPath)
+            savesInFlight -= 1
+        }
+    }
+
     func saveReview() {
         guard let bundle = reviewBundle else { return }
         savesInFlight += 1

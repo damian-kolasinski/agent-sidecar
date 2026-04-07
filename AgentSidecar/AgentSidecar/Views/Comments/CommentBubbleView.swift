@@ -16,18 +16,35 @@ struct CommentBubbleView: View {
 
                 Spacer()
 
-                Button {
-                    appViewModel.toggleResolved(commentID: comment.id)
-                } label: {
-                    HStack(spacing: DSSpacing.xxs) {
-                        Image(systemName: comment.resolved ? "checkmark.circle.fill" : "circle")
-                            .font(.system(size: 12))
-                        Text(comment.resolved ? "Resolved" : "Resolve")
-                            .font(DSFont.caption)
+                HStack(spacing: DSSpacing.sm) {
+                    if comment.isUserAuthored {
+                        Button(role: .destructive) {
+                            appViewModel.deleteComment(commentID: comment.id)
+                        } label: {
+                            HStack(spacing: DSSpacing.xxs) {
+                                Image(systemName: "trash")
+                                    .font(.system(size: 12))
+                                Text("Delete")
+                                    .font(DSFont.caption)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .foregroundStyle(comment.resolved ? .green : .secondary)
+
+                    Button {
+                        appViewModel.toggleResolved(commentID: comment.id)
+                    } label: {
+                        HStack(spacing: DSSpacing.xxs) {
+                            Image(systemName: comment.resolved ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 12))
+                            Text(comment.resolved ? "Resolved" : "Resolve")
+                                .font(DSFont.caption)
+                        }
+                        .foregroundStyle(comment.resolved ? .green : .secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
 
             Text(comment.body)
