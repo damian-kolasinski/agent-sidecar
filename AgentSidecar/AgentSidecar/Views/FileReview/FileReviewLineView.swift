@@ -64,43 +64,10 @@ struct FileReviewLineView: View {
     private var lineText: Text {
         guard isMarkdown else {
             return Text(verbatim: line.isEmpty ? " " : line)
-                .foregroundStyle(DSColor.contextForeground)
+                .foregroundColor(DSColor.contextForeground)
         }
 
-        if line.isEmpty {
-            return Text(" ")
-                .foregroundStyle(DSColor.contextForeground)
-        }
-
-        let tokens = MarkdownLineHighlighter.tokenize(line)
-        if tokens.isEmpty {
-            return Text(" ").foregroundStyle(DSColor.contextForeground)
-        }
-
-        var result = Text("")
-        for token in tokens {
-            var fragment = Text(token.text).foregroundColor(colorForMarkdownToken(token.type))
-            if token.type == .bold {
-                fragment = fragment.bold()
-            } else if token.type == .italic {
-                fragment = fragment.italic()
-            }
-            result = result + fragment
-        }
-        return result
-    }
-
-    private func colorForMarkdownToken(_ type: MarkdownTokenType) -> Color {
-        switch type {
-        case .heading: DSColor.markdownHeading
-        case .bold: DSColor.markdownBold
-        case .italic: DSColor.contextForeground
-        case .code: DSColor.markdownCode
-        case .link: DSColor.markdownLink
-        case .linkURL: DSColor.markdownLinkURL
-        case .listMarker: DSColor.markdownListMarker
-        case .plain: DSColor.contextForeground
-        }
+        return MarkdownTextStyle.text(for: line)
     }
 
     private var fontForLine: Font {
@@ -108,15 +75,7 @@ struct FileReviewLineView: View {
             return DSFont.code
         }
 
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        if trimmed.hasPrefix("# ") {
-            return .system(size: 18, weight: .bold, design: .monospaced)
-        } else if trimmed.hasPrefix("## ") {
-            return .system(size: 15, weight: .bold, design: .monospaced)
-        } else if trimmed.hasPrefix("### ") {
-            return .system(size: 13, weight: .semibold, design: .monospaced)
-        }
-        return DSFont.code
+        return MarkdownTextStyle.font(for: line)
     }
 
     private var leadingIndent: CGFloat {
@@ -124,14 +83,6 @@ struct FileReviewLineView: View {
             return 0
         }
 
-        let trimmed = line.trimmingCharacters(in: .whitespaces)
-        if trimmed.hasPrefix("- ") || trimmed.hasPrefix("* ") {
-            return DSSpacing.md
-        }
-        if let first = trimmed.first, first.isNumber,
-           trimmed.contains(". ") {
-            return DSSpacing.md
-        }
-        return 0
+        return MarkdownTextStyle.leadingIndent(for: line)
     }
 }

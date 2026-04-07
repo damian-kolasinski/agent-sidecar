@@ -71,18 +71,34 @@ struct PlanReviewView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 let lines = viewModel.planContent.components(separatedBy: "\n")
-                ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
-                    PlanLineView(
-                        line: line,
-                        lineIndex: index,
-                        commentsForLine: viewModel.comments.filter { $0.line == line },
-                        onAddComment: { comment in
-                            viewModel.addComment(line: line, comment: comment)
-                        },
-                        onRemoveComment: { id in
-                            viewModel.removeComment(id: id)
-                        }
-                    )
+                let blocks = MarkdownTableParser.blocks(from: lines)
+
+                ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                    switch block {
+                    case .line(let lineBlock):
+                        PlanLineView(
+                            line: lineBlock.line,
+                            lineIndex: lineBlock.lineIndex,
+                            commentsForLine: viewModel.comments.filter { $0.line == lineBlock.line },
+                            onAddComment: { comment in
+                                viewModel.addComment(line: lineBlock.line, comment: comment)
+                            },
+                            onRemoveComment: { id in
+                                viewModel.removeComment(id: id)
+                            }
+                        )
+                    case .table(let table):
+                        PlanMarkdownTableView(
+                            table: table,
+                            comments: viewModel.comments,
+                            onAddComment: { line, comment in
+                                viewModel.addComment(line: line, comment: comment)
+                            },
+                            onRemoveComment: { id in
+                                viewModel.removeComment(id: id)
+                            }
+                        )
+                    }
                 }
             }
             .padding(.vertical, DSSpacing.sm)

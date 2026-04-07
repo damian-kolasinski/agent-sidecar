@@ -66,26 +66,56 @@ struct FileReviewView: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 0) {
                 let lines = viewModel.fileContent.components(separatedBy: "\n")
-                ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
-                    FileReviewLineView(
-                        line: line,
-                        lineNumber: index + 1,
-                        isMarkdown: viewModel.isMarkdownFile,
-                        commandsForLine: viewModel.commands.filter { $0.lineNumber == index + 1 },
-                        onAddCommand: { command in
-                            viewModel.addCommand(
-                                lineNumber: index + 1,
-                                line: line,
-                                command: command
-                            )
-                        },
-                        onRemoveCommand: { id in
-                            viewModel.removeCommand(id: id)
-                        }
-                    )
+                let blocks = markdownBlocks(for: lines)
+
+                ForEach(Array(blocks.enumerated()), id: \.offset) { _, block in
+                    switch block {
+                    case .line(let lineBlock):
+                        FileReviewLineView(
+                            line: lineBlock.line,
+                            lineNumber: lineBlock.lineNumber,
+                            isMarkdown: viewModel.isMarkdownFile,
+                            commandsForLine: viewModel.commands.filter { $0.lineNumber == lineBlock.lineNumber },
+                            onAddCommand: { command in
+                                viewModel.addCommand(
+                                    lineNumber: lineBlock.lineNumber,
+                                    line: lineBlock.line,
+                                    command: command
+                                )
+                            },
+                            onRemoveCommand: { id in
+                                viewModel.removeCommand(id: id)
+                            }
+                        )
+                    case .table(let table):
+                        FileReviewMarkdownTableView(
+                            table: table,
+                            commands: viewModel.commands,
+                            onAddCommand: { lineNumber, line, command in
+                                viewModel.addCommand(
+                                    lineNumber: lineNumber,
+                                    line: line,
+                                    command: command
+                                )
+                            },
+                            onRemoveCommand: { id in
+                                viewModel.removeCommand(id: id)
+                            }
+                        )
+                    }
                 }
             }
             .padding(.vertical, DSSpacing.sm)
+        }
+    }
+
+    private func markdownBlocks(for lines: [String]) -> [MarkdownBlock] {
+        if viewModel.isMarkdownFile {
+            return MarkdownTableParser.blocks(from: lines)
+        }
+
+        return lines.enumerated().map { index, line in
+            .line(MarkdownLineBlock(lineIndex: index, line: line))
         }
     }
 
