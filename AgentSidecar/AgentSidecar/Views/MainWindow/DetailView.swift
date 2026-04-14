@@ -30,6 +30,10 @@ struct DetailView: View {
                 .environmentObject(detailViewModel)
             }
         }
+        .onChange(of: appViewModel.persistedReviewedFiles) { _, newFiles in
+            detailViewModel.reviewedFiles = newFiles
+            detailViewModel.collapsedFiles.formUnion(newFiles)
+        }
     }
 
     private var diffSummaryBar: some View {

@@ -20,15 +20,18 @@ final class AppViewModel: ObservableObject {
     @Published var planFiles: [PlanFileEntry] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var persistedReviewedFiles: Set<String> = []
 
     private var gitService: GitService?
     private let reviewStore = ReviewStore()
     private let recentStore = RecentRepositoriesStore()
+    private let viewedFilesStore = ViewedFilesStore()
     private var fileWatcherTask: Task<Void, Never>?
     private var lastKnownModDate: Date?
     private var savesInFlight = 0
     private var fileContentCache: [String: [String]] = [:]
     private var fileContentMisses: Set<String> = []
+    private var currentDiffHashes: [String: String] = [:]
 
     deinit {
         fileWatcherTask?.cancel()
@@ -111,6 +114,23 @@ final class AppViewModel: ObservableObject {
             fileContentCache = [:]
             fileContentMisses = []
             fileDiffs = DiffParser.parse(rawDiff)
+
+            // Compute diff hashes and restore persisted viewed state
+            var hashes: [String: String] = [:]
+            for diff in fileDiffs {
+                hashes[diff.displayPath] = diff.contentHash
+            }
+            currentDiffHashes = hashes
+
+            let viewedData = await viewedFilesStore.load(repoPath: repoPath)
+            let storedFiles = viewedData.scopes[scope.rawValue] ?? [:]
+            var stillViewed: Set<String> = []
+            for (path, storedHash) in storedFiles {
+                if hashes[path] == storedHash {
+                    stillViewed.insert(path)
+                }
+            }
+            persistedReviewedFiles = stillViewed
 
             // Load existing review bundle
             reviewBundle = try await reviewStore.load(repoPath: repoPath)
@@ -217,6 +237,32 @@ final class AppViewModel: ObservableObject {
 
     func commentsForAnchor(_ filePath: String, anchor: String) -> [ReviewComment] {
         commentsForFile(filePath).filter { $0.lineAnchor == anchor }
+    }
+
+    // MARK: - Viewed Files Persistence
+
+    func persistFileViewed(_ filePath: String) {
+        guard let repoPath else { return }
+        let hash = currentDiffHashes[filePath] ?? ""
+        let scopeKey = scope.rawValue
+        Task {
+            var data = await viewedFilesStore.load(repoPath: repoPath)
+            if data.scopes[scopeKey] == nil {
+                data.scopes[scopeKey] = [:]
+            }
+            data.scopes[scopeKey]?[filePath] = hash
+            try? await viewedFilesStore.save(data, repoPath: repoPath)
+        }
+    }
+
+    func persistFileUnviewed(_ filePath: String) {
+        guard let repoPath else { return }
+        let scopeKey = scope.rawValue
+        Task {
+            var data = await viewedFilesStore.load(repoPath: repoPath)
+            data.scopes[scopeKey]?[filePath] = nil
+            try? await viewedFilesStore.save(data, repoPath: repoPath)
+        }
     }
 
     // MARK: - File Content

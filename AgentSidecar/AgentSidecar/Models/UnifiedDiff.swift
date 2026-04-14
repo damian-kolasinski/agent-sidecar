@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 enum FileStatus: String, Codable, Sendable {
     case modified = "M"
@@ -70,5 +71,21 @@ struct FileDiff: Identifiable, Sendable {
 
     var deletionCount: Int {
         hunks.flatMap(\.lines).filter { $0.type == .deletion }.count
+    }
+
+    var contentHash: String {
+        var hasher = SHA256()
+        hasher.update(data: Data(oldPath.utf8))
+        hasher.update(data: Data(newPath.utf8))
+        hasher.update(data: Data(status.rawValue.utf8))
+        for hunk in hunks {
+            hasher.update(data: Data(hunk.header.utf8))
+            for line in hunk.lines {
+                hasher.update(data: Data(line.type.rawValue.utf8))
+                hasher.update(data: Data(line.content.utf8))
+            }
+        }
+        let digest = hasher.finalize()
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }

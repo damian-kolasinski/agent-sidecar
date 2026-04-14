@@ -44,11 +44,12 @@ actor ReviewStore {
         let dirPath = (bundle.repoPath as NSString).appendingPathComponent(Self.directoryName)
         let filePath = (dirPath as NSString).appendingPathComponent(Self.fileName)
 
-        // Create directory if needed
+        // Create directory if needed and ensure it's gitignored
         try FileManager.default.createDirectory(
             atPath: dirPath,
             withIntermediateDirectories: true
         )
+        Self.ensureGitignore(in: dirPath)
 
         // Atomic write
         let data = try encoder.encode(bundle)
@@ -61,5 +62,11 @@ actor ReviewStore {
             try FileManager.default.removeItem(at: destURL)
         }
         try FileManager.default.moveItem(at: tempURL, to: destURL)
+    }
+
+    static func ensureGitignore(in directoryPath: String) {
+        let gitignorePath = (directoryPath as NSString).appendingPathComponent(".gitignore")
+        guard !FileManager.default.fileExists(atPath: gitignorePath) else { return }
+        try? Data("*\n".utf8).write(to: URL(fileURLWithPath: gitignorePath))
     }
 }

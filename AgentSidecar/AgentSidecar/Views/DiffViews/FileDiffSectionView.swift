@@ -329,6 +329,11 @@ struct FileDiffSectionView: View {
         Button {
             withAnimation(.easeInOut(duration: 0.15)) {
                 detailViewModel.toggleFileReviewed(fileDiff.displayPath)
+                if detailViewModel.isFileReviewed(fileDiff.displayPath) {
+                    appViewModel.persistFileViewed(fileDiff.displayPath)
+                } else {
+                    appViewModel.persistFileUnviewed(fileDiff.displayPath)
+                }
             }
         } label: {
             HStack(spacing: 4) {
