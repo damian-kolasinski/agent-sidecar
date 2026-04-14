@@ -27,6 +27,8 @@ final class AppViewModel: ObservableObject {
     private var fileWatcherTask: Task<Void, Never>?
     private var lastKnownModDate: Date?
     private var savesInFlight = 0
+    private var fileContentCache: [String: [String]] = [:]
+    private var fileContentMisses: Set<String> = []
 
     deinit {
         fileWatcherTask?.cancel()
@@ -106,6 +108,8 @@ final class AppViewModel: ObservableObject {
             }
 
             let rawDiff = try await service.diff(scope: scope, baseBranch: baseBranch)
+            fileContentCache = [:]
+            fileContentMisses = []
             fileDiffs = DiffParser.parse(rawDiff)
 
             // Load existing review bundle
@@ -213,6 +217,24 @@ final class AppViewModel: ObservableObject {
 
     func commentsForAnchor(_ filePath: String, anchor: String) -> [ReviewComment] {
         commentsForFile(filePath).filter { $0.lineAnchor == anchor }
+    }
+
+    // MARK: - File Content
+
+    func fileLines(for relativePath: String) -> [String]? {
+        if let cached = fileContentCache[relativePath] { return cached }
+        if fileContentMisses.contains(relativePath) { return nil }
+        guard let repoPath else { return nil }
+        let fullPath = (repoPath as NSString).appendingPathComponent(relativePath)
+        guard let data = FileManager.default.contents(atPath: fullPath),
+              let content = String(data: data, encoding: .utf8) else {
+            fileContentMisses.insert(relativePath)
+            return nil
+        }
+        var lines = content.components(separatedBy: "\n")
+        if lines.last?.isEmpty == true { lines.removeLast() }
+        fileContentCache[relativePath] = lines
+        return lines
     }
 
     // MARK: - File Watcher

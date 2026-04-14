@@ -1,5 +1,10 @@
 import SwiftUI
 
+struct GapExpansion {
+    var fromTop: Int = 0
+    var fromBottom: Int = 0
+}
+
 @MainActor
 final class DiffDetailViewModel: ObservableObject {
     @Published var composerAnchor: String?
@@ -8,6 +13,7 @@ final class DiffDetailViewModel: ObservableObject {
     @Published var expandedThreads: Set<String> = []
     @Published var collapsedFiles: Set<String> = []
     @Published var reviewedFiles: Set<String> = []
+    @Published var gapExpansions: [String: GapExpansion] = [:]
 
     var isComposerOpen: Bool {
         composerAnchor != nil
@@ -60,5 +66,25 @@ final class DiffDetailViewModel: ObservableObject {
 
     func isThreadExpanded(_ anchor: String) -> Bool {
         expandedThreads.contains(anchor)
+    }
+
+    // MARK: - Gap Expansion
+
+    func expansion(for gapID: String) -> GapExpansion {
+        gapExpansions[gapID] ?? GapExpansion()
+    }
+
+    func expandGapDown(_ gapID: String, totalLines: Int) {
+        var exp = gapExpansions[gapID] ?? GapExpansion()
+        let remaining = max(0, totalLines - exp.fromTop - exp.fromBottom)
+        exp.fromTop += min(20, remaining)
+        gapExpansions[gapID] = exp
+    }
+
+    func expandGapUp(_ gapID: String, totalLines: Int) {
+        var exp = gapExpansions[gapID] ?? GapExpansion()
+        let remaining = max(0, totalLines - exp.fromTop - exp.fromBottom)
+        exp.fromBottom += min(20, remaining)
+        gapExpansions[gapID] = exp
     }
 }
